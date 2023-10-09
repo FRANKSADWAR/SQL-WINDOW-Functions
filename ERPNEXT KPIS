@@ -1,0 +1,830 @@
+-----Item balance report per company
+
+select a.item_code as "Item:Link/Item:120",
+	  a.item_name as "Item Name::150",
+	  a.item_group as "Item Group:Link/Item Group:120",
+	  a.brand as "Brand:Link/Brand:120",
+	  a.description as "Description::150",
+	  b.warehouse as "Warehouse:Link/Warehouse:120",
+	  b.actual_qty as "Balance Qty:Float:140"
+ from `tabItem` a left join `tabBin` b
+ ON a.item_code = b.item_code;
+ 
+ 
+ 
+ -------- STOCK SOLD per company
+ 
+ SELECT
+    CASE WHEN DAY IS NOT NULL THEN 'Day' ELSE 'Month' END AS Period,
+    CASE WHEN DAY IS NOT NULL THEN DAY(POSTING_DATE) ELSE MONTH(POSTING_DATE) END AS Date,
+    CASE WHEN DAY IS NOT NULL THEN MONTH(POSTING_DATE) ELSE YEAR(POSTING_DATE) END AS Month,
+    IFNULL(COMPANY, 'Total') AS Company,
+    IFNULL(ITEM_GROUP, 'Total') AS ItemGroup,
+    COUNT(DISTINCT SI.name) AS InvoiceCount,
+    SUM(SI.TOTAL) AS TotalAmount
+FROM
+    `tabSales Invoice` AS SI
+JOIN
+    `tabSales Invoice Item` AS SII ON SI.name = SII.parent
+WHERE
+    SI.DOCSTATUS = 1
+    AND SI.STATUS = 'Paid'
+GROUP BY
+    Period,
+    Date,
+    Month,
+    Company,
+    ItemGroup
+ORDER BY
+    Period,
+    Date,
+    Month,
+    Company,
+    ItemGroup;
+
+
+
+SELECT SI.company_name AS Company, SII.item_group AS ItemGroup, Count(DISTINCT SI.name) AS InvoiceCount,  SUM(SI.total) as TotalAmount
+    FROM `tabSales Invoice` AS SI JOIN
+    `tabSales Invoice Item` AS SII ON SI.name = SII.parent WHERE SI.status ='Paid' AND SI.docstatus =1 GROUP BY Company;
+    
+    
+SELECT si.company, sii.item_group AS 'Item Group', si.total FROM `tabSales Invoice` AS si 
+LEFT JOIN `tabCompany` AS cmp ON si.company=cmp.name  
+LEFT JOIN `tabSales Invoice Item` AS sii ON sii.parent = si.name
+WHERE si.status = 'Paid' AND si.docstatus = 1 GROUP BY Company, 'Item Group';
+
+
+
+
+
+
+
+
+
+
+
+
+SELECT si.company,  SUM(si.grand_total) AS 'Total Sales' FROM `tabSales Invoice` AS si  LEFT JOIN `tabCompany` AS cmp ON si.company=cmp.name WHERE si.status = 'Paid' 
+AND si.sales_type <> 'Aggregation' AND si.docstatus = 1 GROUP BY Company;
+
+
+
+
+
+
+SELECT
+    `tabItem`.`item_group` AS `Item_Group`,
+    `tabSalesInvoice`.`company` AS `Company`,
+    SUM(`tabSalesInvoice`.`grand_total`) AS `Total_Sales`
+FROM
+    `tabSalesInvoice`
+JOIN
+    `tabItem`
+ON
+    `tabSalesInvoice`.`item_code` = `tabItem`.`item_code`
+WHERE
+    `tabSalesInvoice`.`docstatus` = 1
+    AND `tabSalesInvoice`.`payment_status` = 'Paid'
+GROUP BY
+    `tabItem`.`item_group`,
+    `tabSalesInvoice`.`company`;
+    
+    
+    
+    
+
+
+select name, company_name, company FROM `tabCompany`;
+    
+ 
+ 
+ ---- GET the name of wareehouse:
+ SELECT tc.company AS company, wh.warehouse_name AS warehouse from `tabWarehouse` wh JOIN `tabCompany` tc ON wh.company = tc.name WHERE  tc.company = 'Test';   
+    
+----- Group actual qty of products in each warehouse
+select itm.item_group, SUM(bins.actual_qty) as total FROM tabBin AS bins JOIN tabItem AS itm ON 
+bins.item_code = itm.item_code WHERE    bins.warehouse = 'Stores - A' GROUP BY itm.item_group ;
+    
+    
+    SELECT * FROM (SELECT warehouse FROM  (SELECT  wh.name AS warehouse from `tabWarehouse` wh JOIN `tabCompany` tc 
+   ON wh.company = tc.name WHERE  tc.company = 'Test') AS subquery WHERE warehouse LIKE '%Stores%') as nwe;   
+    
+    
+    
+    
+    
+------ Get the main warehouse of a company
+select wh.name FROM tabWarehouse as wh LEFT JOIN tabCompany AS c ON wh.company = c.name 
+WHERE c.company='Test' AND wh.warehouse_name = 'Stores';
+
+
+
+--- Get the main stores of a company
+SELECT name,company  FROM tabWarehouse where name = (select wh.name FROM tabWarehouse as wh LEFT JOIN tabCompany AS c ON wh.company = c.name 
+WHERE c.company='Test' AND wh.warehouse_name = 'Stores');     
+
+
+SELECT name,company  FROM tabWarehouse where name = (select wh.name FROM tabWarehouse as wh LEFT JOIN tabCompany AS c ON wh.company = c.name 
+WHERE c.company='Test' AND wh.warehouse_name = 'Stores'); 
+
+
+
+---- GET the groups of individual items in stock for each company
+SELECT itm.item_group, bin.item_code, bin.actual_qty,  bin.stock_value FROM tabBin AS bin JOIN tabItem AS itm ON bin.item_code = itm.item_code 
+WHERE bin.warehouse = (select wh.name FROM tabWarehouse as wh LEFT JOIN tabCompany AS c ON wh.company = c.name 
+WHERE c.company='Test' AND wh.warehouse_name = 'Stores');
+
+
+---- STOCK value and quantity for each company
+SELECT itm.item_group, SUM(bin.actual_qty), SUM(bin.stock_value) FROM tabBin AS bin JOIN tabItem AS itm ON bin.item_code = itm.item_code 
+WHERE bin.warehouse = (select wh.name FROM tabWarehouse as wh LEFT JOIN tabCompany AS c ON wh.company = c.name 
+WHERE c.company='agriBORA' AND wh.warehouse_name = 'Stores') GROUP BY itm.item_group;
+
+
+
+
+------ SAME AS ABOVE
+SELECT itm.item_group, SUM(bin.actual_qty), SUM(bin.stock_value) FROM tabBin AS bin JOIN tabItem AS itm ON bin.item_code = itm.item_code 
+WHERE bin.warehouse = (select wh.name FROM tabWarehouse as wh LEFT JOIN tabCompany AS c ON wh.company = c.name 
+WHERE c.company='agriBORA' AND wh.warehouse_name = 'Stores') GROUP BY itm.item_group;
+
+
+
+
+
+
+----- Test this further
+SELECT
+    `itm`.item_group AS 'Item Group',
+    SUM(`bin`.actual_qty) AS 'Actual stock',
+    SUM(`bin`.stock_value) AS 'Stock value'
+FROM
+    `tabBin` AS `bin`
+JOIN
+    `tabItem` AS `itm` ON `bin`.`item_code` = `itm`.`item_code`
+JOIN
+    `tabWarehouse` AS wh ON `bin`.`warehouse` = `wh`.`name`
+JOIN
+    `tabCompany` AS c ON wh.`company` = c.name
+WHERE
+    `wh`.`warehouse_name` = 'Stores' 
+     AND  {{hub}}
+GROUP BY
+    `itm`.`item_group`;
+    
+    
+ SELECT
+    `itm`.item_group AS 'Item Group',
+    SUM(`bin`.actual_qty) AS 'Actual stock',
+    SUM(`bin`.stock_value) AS 'Stock value'
+FROM
+    `tabBin` AS `bin`
+JOIN
+    `tabItem` AS `itm` ON `bin`.`item_code` = `itm`.`item_code`
+JOIN
+    `tabWarehouse` AS `wh` ON `bin`.`warehouse` = `wh`.`name`
+JOIN
+    `tabCompany` AS `TabCompany` ON `wh`.`company` = `TabCompany`.`name`
+WHERE
+    `wh`.`warehouse_name` = 'Stores'
+    AND `TabCompany`.`company` = 'agriBORA'
+GROUP BY
+    `itm`.`item_group`;
+   
+ 
+
+
+
+----- Number of tables in ERPNext 
+select table_schema as database_name,
+    count(*) as tables
+from information_schema.tables
+where table_type = 'BASE TABLE'
+      and table_schema not in ('information_schema', 'sys',
+                               'performance_schema', 'mysql')
+group by table_schema
+order by table_schema;
+
+
+
+----- Stock value per company
+select bin.warehouse, SUM(bin.actual_qty), SUM(bin.valuation_rate), SUM(bin.stock_value) FROM tabBin AS bin 
+JOIN tabWarehouse  AS wh ON bin.warehouse = wh.name
+JOIN tabCompany AS cmp ON cmp.name = wh.company
+WHERE cmp.company NOT IN ('Test','Test 2') GROUP BY bin.warehouse;
+
+
+
+
+----- Total stock value over all hubs
+SELECT COALESCE(SUM(`tabStock Entry`.`total_incoming_value`),0) - COALESCE(SUM(`tabStock Entry`.`total_outgoing_value`),0) as `total_stock_balance`
+FROM `tabStock Entry`
+JOIN `tabCompany` AS `TabCompany` ON `tabStock Entry`.`company` = `TabCompany`.`company_name`
+WHERE `tabStock Entry`.`docstatus` = 1 -- Status is confirmed
+and `TabCompany`.`company` not in ('agriBORA','Test','Test 2')
+
+
+
+
+----- Stock tunover
+SELECT COALESCE(SUM(`tabStock Entry`.`total_incoming_value`),0) - COALESCE(SUM(`tabStock Entry`.`total_outgoing_value`),0) as `total_stock_balance`
+FROM `tabStock Entry`
+JOIN `tabCompany` ON `tabStock Entry`.`company` = `tabCompany`.`company_name`
+WHERE  {{hub}}
+AND `tabStock Entry`.`docstatus` = 1 -- Status is confirmed
+
+
+
+----- Sales Order per week
+SELECT
+    CONCAT(
+        DATE_FORMAT(week_start, '%Y-%m-%d'),
+        ' - ',
+        DATE_FORMAT(week_end, '%Y-%m-%d')
+    ) AS date_range,
+    YEAR(week_data.delivery_date) AS year,
+    WEEK(week_data.delivery_date) AS week_number,
+    IFNULL(SUM(week_data.total),0) AS total_sales
+FROM (
+    SELECT company,
+        docstatus, delivery_status, 
+        sales_type,
+        delivery_date,
+        total,
+        DATE_SUB(delivery_date, INTERVAL WEEKDAY(delivery_date) DAY) AS week_start,
+        DATE_ADD(DATE_SUB(delivery_date, INTERVAL WEEKDAY(delivery_date) DAY), INTERVAL 6 DAY) AS week_end
+    FROM
+        `tabSales Order`
+) AS week_data
+JOIN tabCompany AS cmp ON week_data.company = cmp.name
+WHERE cmp.company = 'Test'
+AND week_data.delivery_status = 'Fully Delivered'
+GROUP BY
+    year, week_number
+ORDER BY
+    year ASC, week_number ASC;
+    
+    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+ SELECT
+    CASE WHEN so.transaction_date IS NOT NULL THEN MONTHNAME(so.transaction_date) ELSE YEAR(so.transaction_date) END AS Month,
+    cmp.company AS Company,
+    soi.item_group AS ItemGroup,
+    CASE WHEN so.total IS NOT NULL THEN SUM(so.total) ELSE COALESCE(SUM(so.total),0) END AS TotalAmount
+FROM
+    `tabSales Order` AS so
+JOIN
+    `tabSales Order Item` AS soi ON so.name = soi.parent
+    JOIN `tabCompany` AS cmp ON cmp.name = so.company 
+WHERE
+    so.docstatus = 1
+    AND so.delivery_status = 'Fully Delivered'
+    AND so.transaction_date >= "2023-01-01"
+    AND so.sales_type <> "Aggregation"
+    AND cmp.company = "Test"
+GROUP BY
+    Month,
+    ItemGroup
+ORDER BY
+    Month,
+    ItemGroup;
+    
+    
+    
+    
+    
+    
+    
+
+
+ SELECT
+    CASE WHEN si.posting_date IS NOT NULL THEN WEEK(si.posting_date) ELSE MONTH(si.posting_date) END AS Week,
+    CASE WHEN si.posting_date IS NOT NULL THEN MONTHNAME(si.posting_date) ELSE YEAR(si.posting_date) END AS Month,
+    cmp.company AS Company,
+    sii.item_group AS ItemGroup,
+    CASE WHEN si.total IS NOT NULL THEN SUM(si.total) ELSE COALESCE(SUM(si.total),0) END AS TotalAmount
+FROM
+    `tabSales Invoice` AS si
+JOIN
+    `tabSales Invoice Item` AS sii ON si.name = sii.parent
+    JOIN `tabCompany` AS cmp ON cmp.name = si.company 
+WHERE
+    si.docstatus = 1
+    AND si.STATUS = 'Paid'
+    AND si.sales_type <> "Aggregation"
+    AND cmp.company = "agriBORA"
+GROUP BY
+    Week,
+    Month,
+    Company,
+    ItemGroup
+ORDER BY
+    Week,
+    Month,
+    Company,
+    ItemGroup;        
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    SELECT
+    weeks.week_number AS Week,
+    MONTHNAME(months.month_date) AS Month,
+    si.company AS Company,
+    sii.item_group AS ItemGroup,
+    COALESCE(SUM(si.total), 0) AS TotalAmount
+FROM (
+    SELECT 1 AS week_number UNION SELECT 2 UNION SELECT 3 UNION SELECT 4 UNION SELECT 5 UNION SELECT 6
+    UNION SELECT 7 UNION SELECT 8 UNION SELECT 9 UNION SELECT 10 UNION SELECT 11 UNION SELECT 12 UNION SELECT 13
+) AS weeks
+CROSS JOIN (
+    SELECT MIN(posting_date) AS min_date, MAX(posting_date) AS max_date
+    FROM `tabSales Invoice`
+    WHERE docstatus = 1
+        AND STATUS = 'Paid'
+        AND sales_type <> "Aggregation"
+        AND company = "Test"
+) AS date_range
+CROSS JOIN (
+    SELECT DATE_SUB(MAX(posting_date), INTERVAL 1 MONTH) AS month_date FROM `tabSales Invoice`
+) AS months
+LEFT JOIN `tabSales Invoice` AS si ON WEEK(si.posting_date) = weeks.week_number AND YEAR(si.posting_date) = YEAR(date_range.min_date)
+LEFT JOIN `tabSales Invoice Item` AS sii ON si.name = sii.parent
+JOIN `tabCompany` AS cmp ON cmp.name = si.company 
+WHERE
+    (si.docstatus = 1 OR si.docstatus IS NULL)
+    AND (si.STATUS = 'Paid' OR si.STATUS IS NULL)
+    AND (si.sales_type <> "Aggregation" OR si.sales_type IS NULL)
+    AND cmp.company = "Test"
+    AND si.posting_date BETWEEN date_range.min_date AND date_range.max_date
+GROUP BY
+    Week,
+    Month,
+    Company,
+    ItemGroup
+ORDER BY
+    Week,
+    Month,
+    Company,
+    ItemGroup;
+
+
+
+select bin.item_code, bin.warehouse, bin.actual_qty, bin.valuation_rate, iprice.price_list_rate, iprice.price_list,  stock_value FROM tabBin AS bin JOIN `tabItem Price` AS iprice
+ON bin.item_code  = iprice.item_code 
+WHERE iprice.price_list = "agriBORA-Buying" AND iprice.buying =1;
+
+    
+    @RootYear9090
+    w36xSXGp4p
+
+
+
+SELECT itm.item_group,
+SUM(bin.actual_qty), 
+SUM(stock_value) AS "Total Stock Value",
+SUM(CAST(bin.actual_qty AS DECIMAL(10,2)) * CAST(prices.BuyingPrice AS DECIMAL (10,2))) AS "TotalBuyingPrice",
+SUM(CAST(bin.actual_qty AS DECIMAL(10,2)) * CAST(prices.SellingPrice AS DECIMAL (10,2))) AS "TotalSellingPrice",
+SUM((CAST(bin.actual_qty AS DECIMAL(10,2)) * CAST(prices.SellingPrice AS DECIMAL (10,2))) -  (CAST(bin.actual_qty AS DECIMAL(10,2)) * CAST(prices.BuyingPrice AS DECIMAL (10,2)))) AS ProfitMargin
+FROM (SELECT 
+    item_code,
+    IFNULL(MAX(CASE WHEN price_list = 'agriBORA-Buying' THEN price_list_rate END),0) AS BuyingPrice,
+    IFNULL(MAX(CASE WHEN price_list = 'agriBORA-Selling' THEN price_list_rate END),0) AS SellingPrice FROM `tabItem Price` WHERE price_list IN ('agriBORA-Buying','agriBORA-Selling')
+GROUP BY item_code)  AS prices
+JOIN  tabBin AS bin ON prices.item_code = bin.item_code
+JOIN tabWarehouse AS wh ON wh.name = bin.warehouse
+JOIN tabCompany AS cmp ON cmp.name  = wh.company
+JOIN `tabItem` AS itm ON itm.item_code = prices.item_code
+WHERE cmp.company NOT IN('agriBORA','Test','Test2')
+AND prices.SellingPrice > 0
+GROUP BY itm.item_group
+ORDER BY ProfitMargin DESC;
+
+    
+
+
+
+SELECT
+    itm.item_group AS 'Item Group',
+    SUM(bin.actual_qty) AS 'Actual stock',
+    SUM(bin.stock_value) AS 'Stock value',
+    SUM((bin.actual_qty) * (ip.price_list_rate)) AS "Total Buying Price"
+FROM
+    `tabBin` AS bin
+JOIN
+    `tabItem` AS itm ON bin.`item_code` = itm.`item_code`
+JOIN
+    `tabWarehouse` AS wh ON bin.`warehouse` = wh.`name`
+JOIN
+    `tabCompany` ON  wh.`company` = `tabCompany`.name
+JOIN 
+    `tabItem Price` AS ip ON ip.item_code  = bin.item_code
+WHERE 
+    tabCompany.company= 'agriBORA'
+    AND wh.`warehouse_name` = 'Stores'
+    AND ip.buying = 1
+    AND ip.price_list = "agriBORA-Buying"
+GROUP BY
+    itm.`item_group`;
+
+    
+
+
+
+
+
+
+
+SELECT node.name,node.lft, node.rgt, (COUNT(parent.name)-1) AS depth FROM `tabItem Group` AS node, `tabItem Group` AS parent WHERE node.lft 
+BETWEEN parent.lft AND parent.rgt GROUP BY node.name ORDER BY node.lft;
+
+
+
+
+
+WITH RECURSIVE ItemGroupHierarchy AS (
+    SELECT
+        ig.`name` AS 'Item Group',
+        ig.`parent_item_group` AS 'Parent Item Group'
+    FROM
+        `tabItem Group` AS ig
+    WHERE
+        ig.`lft` BETWEEN (
+            SELECT
+                `lft`
+            FROM
+                `tabItem Group`
+            WHERE
+                `name` = 'All Item Groups'
+        ) AND (
+            SELECT
+                `rgt`
+            FROM
+                `tabItem Group`
+            WHERE
+                `name` = 'All Item Groups'
+        )
+
+    UNION ALL
+
+    SELECT
+        ig2.`name` AS 'Item Group',
+        ig2.`parent_item_group` AS 'Parent Item Group'
+    FROM
+        `tabItem Group` AS ig2
+    INNER JOIN
+        ItemGroupHierarchy AS ih
+    ON
+        ig2.`parent_item_group` = ih.`Item Group`
+)
+
+SELECT
+    ih.`Item Group`,
+    SUM(bin.`actual_qty`) AS 'Actual stock',
+    SUM(bin.`stock_value`) AS 'Stock value'
+FROM
+    `tabBin` AS bin
+JOIN
+    `tabItem` AS itm
+ON
+    bin.`item_code` = itm.`item_code`
+JOIN
+    `tabWarehouse` AS wh
+ON
+    bin.`warehouse` = wh.`name`
+JOIN
+    `tabCompany`
+ON
+    wh.`company` = `tabCompany`.`name`
+JOIN
+    ItemGroupHierarchy AS ih
+ON
+    itm.`item_group` = ih.`Item Group`
+WHERE
+    tabCompany.company NOT IN ('agriBORA','Test','Test2')
+    AND wh.`warehouse_name` = 'Stores'
+GROUP BY
+    ih.`Item Group`;
+    
+    
+    
+    
+    
+    
+     JOIN `tabItem Group` AS node, `tabItem Group` AS parent 
+    WHERE node.lft BETWEEN parent.lft AND parent.rgt 
+    AND itm.item_group = parent.name 
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+WITH stock_table AS (
+    SELECT bin.item_code, bin.actual_qty, bin.valuation_rate,
+    (IFNULL(MAX(CASE WHEN price.price_list = 'agriBORA-Buying' THEN  price.price_list_rate END),0)) * bin.actual_qty AS Total_BP,
+    (IFNULL(MAX(CASE WHEN price.price_list = 'agriBORA-Selling' THEN price.price_list_rate END),0)) * bin.actual_qty AS Total_SP,
+    ((IFNULL(MAX(CASE WHEN price.price_list = 'agriBORA-Selling' THEN price.price_list_rate END),0)) * bin.actual_qty 
+        - (IFNULL(MAX(CASE WHEN price.price_list = 'agriBORA-Buying' THEN  price.price_list_rate END),0)) * bin.actual_qty) AS Margins,
+    bin.warehouse, ig.name AS ig_name FROM tabBin AS bin 
+    JOIN `tabItem` AS itm ON bin.item_code = itm.item_code
+    JOIN `tabItem Group` AS ig ON itm.item_group = ig.name
+    JOIN `tabItem Price` AS price ON itm.item_code = price.item_code
+    JOIN `tabWarehouse` AS wh ON bin.warehouse = wh.name
+    JOIN `tabCompany` AS cmp ON wh.company = cmp.name
+    WHERE cmp.company IN ('agriBORA')
+    AND price.price_list IN ('agriBORA-Buying','agriBORA-Selling')
+    GROUP BY bin.item_code 
+    )
+    
+    SELECT parent.name, SUM(st.actual_qty) AS "Total Stock", SUM(st.Total_BP) AS "Total Buying", SUM(st.Total_SP) AS "Total SP",
+    SUM(st.Margins) AS "Total Margins" FROM
+    `tabItem Group` AS node, 
+    `tabItem Group` AS parent
+    JOIN
+    stock_table AS st
+    WHERE node.lft BETWEEN parent.lft AND parent.rgt
+    AND node.name = st.ig_name
+    AND parent.name IN ('Fertilizer','Storage','Agro Chemicals','Seed')
+    GROUP BY parent.name;
+    
+    
+    
+ --- Profit margin of the items in a warehouse
+ SELECT ig.name, prices.item_code, prices.BuyingPrice, bin.valuation_rate,  prices.SellingPrice, bin.actual_qty, CAST(bin.actual_qty AS DECIMAL(10,2)) * CAST(prices.BuyingPrice AS DECIMAL (10,2)) AS "TotalBuyingPrice",
+CAST(bin.actual_qty AS DECIMAL(10,2)) * CAST(prices.SellingPrice AS DECIMAL (10,2)) AS "TotalSellingPrice",
+(CAST(bin.actual_qty AS DECIMAL(10,2)) * CAST(prices.SellingPrice AS DECIMAL (10,2))) -  (CAST(bin.actual_qty AS DECIMAL(10,2)) * CAST(prices.BuyingPrice AS DECIMAL (10,2))) AS ProfitMargin
+FROM (SELECT 
+    item_code,
+    IFNULL(MAX(CASE WHEN price_list = 'agriBORA-Buying' THEN price_list_rate END)) AS BuyingPrice,
+    ifnull(MAX(CASE WHEN price_list = 'agriBORA-Selling' THEN price_list_rate END)) AS SellingPrice FROM `tabItem Price` WHERE price_list IN ('agriBORA-Buying','agriBORA-Selling')
+GROUP BY item_code)  AS prices
+JOIN  `tabBin` AS bin ON prices.item_code = bin.item_code
+JOIN `tabItem` AS itm ON bin.item_code  = itm.item_code
+JOIN`tabItem Group` AS ig ON itm.item_group = ig.name
+JOIN `tabWarehouse` AS wh ON wh.name = bin.warehouse
+JOIN `tabCompany` AS cmp ON cmp.name  = wh.company
+WHERE cmp.company= 'agriBORA'
+GROUP BY bin.item_code;
+
+
+
+   
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    SELECT cmp.company, cmp.name, bin.item_code, bin.warehouse, bin.actual_qty, bin.valuation_rate, bin.stock_value FROM tabBin AS bin
+JOIN tabWarehouse AS wh ON wh.name = bin.warehouse
+JOIN tabCompany AS cmp ON cmp.name  = wh.company
+WHERE cmp.company NOT IN ('agriBORA','Test','Test 2','Test 3','Google Play Store') GROUP BY bin.warehouse;
+    
+    
+    
+    
+SELECT
+    so.delivery_date,
+    soi.item_code AS 'Item Code',
+    soi.qty AS 'Quantity',
+    soi.base_rate AS 'Selling Price',
+    MIN(poi.base_rate) AS 'Latest Buying Price',
+    (soi.qty * soi.rate) AS 'Total Sales',
+    (soi.qty * soi.rate) - (soi.qty * MIN(poi.rate)) AS Margin
+FROM
+    `tabSales Order` so
+JOIN `tabCompany` AS cmp ON cmp.name = so.company  
+INNER JOIN
+    `tabSales Order Item` soi ON so.name = soi.parent
+  
+INNER JOIN (
+    SELECT
+        poi.item_code,
+        poi.rate
+    FROM
+        `tabPurchase Order Item` poi
+    GROUP BY
+        poi.item_code
+) AS subquery ON soi.item_code = subquery.item_code
+LEFT JOIN
+    `tabPurchase Order Item` poi ON subquery.item_code = poi.item_code
+WHERE
+    so.docstatus = 1
+    AND so.status = "Completed"
+    AND cmp.company IN ('agriBORA') 
+    GROUP BY soi.item_code ORDER BY Margin DESC;    
+    
+    
+    
+WITH buying_table AS  (
+    SELECT poi.item_code, poi.base_net_rate AS rate FROM  `tabPurchase Order Item` AS poi 
+    INNER JOIN 
+    `tabPurchase Order` AS po ON poi.parent = po.name
+    WHERE po.status = 'Completed' GROUP BY poi.item_code
+    )
+SELECT soi.item_code, soi.delivery_date, soi.qty, st.rate AS buying_rate,  soi.base_net_rate AS selling_rate FROM `tabSales Order Item` as soi
+JOIN `tabSales Order` AS so ON soi.parent = so.name
+JOIN buying_table AS st ON st.item_code = soi.item_code
+WHERE so.status = 'Completed' GROUP BY st.item_code;     
+    
+
+
+SELECT soi.item_code, soi.rate, soi.base_rate, bin.valuation_rate, bin.actual_qty FROM `tabSales Order Item` AS soi
+JOIN `tabSales Order` AS so ON soi.parent = so.name
+LEFT JOIN `tabBin` AS bin ON soi.item_code = bin.item_code
+WHERE so.delivery_status = "Fully Delivered"
+AND so.billing_status = "Fully Billed"
+GROUP BY soi.item_code;
+    
+    
+    
+    The Hub already added as with stock transfer for August  as follow Abalindi, Akonya, Bulwani, Cheptais, Kodongo, Mt Elgon Agribusiness Centre and Tingwa Cooperative
+    
+    
+    
+    
+ Yes, we can see the transactions in customer app at Finances section   
+    
+    
+    
+WITH sales_table AS (
+    SELECT sio.item_code, sio.qty, sio.rate, ig.name AS ig_name FROM `tabSales Order Item` AS sio
+    JOIN `tabSales Order` AS so ON sio.parent = so.name
+    JOIN `tabItem` AS itm ON sio.item_code = itm.item_code
+    JOIN `tabItem Group` AS ig ON itm.item_group = ig.name
+    JOIN `tabCompany` ON  so.company = `tabCompany`.name 
+    WHERE so.delivery_status IN ("Fully Delivered","Partly Delivered")
+    AND `tabCompany`.company = 'agriBORA'
+    )
+    SELECT parent.name, IFNULL(SUM(sa.qty),0) AS Qty, IFNULL(SUM(sa.qty * sa.rate),0) AS "Total Value" FROM 
+    `tabItem Group` AS node, `tabItem Group` AS parent
+    JOIN sales_table AS sa
+    WHERE node.lft BETWEEN parent.lft AND parent.rgt
+    AND node.name = sa.ig_name
+    AND parent.name IN ('Fertilizer','Storage','Agro Chemicals','Seed','Output')
+    GROUP BY parent.name;
+    
+    
+    
+    
+     SELECT
+    MONTHNAME(so.transaction_date) AS Month,
+    cmp.company AS Company,
+    soi.item_group AS ItemGroup,
+    -- IFNULL(SUM(so.total),0.0) AS Total
+    CASE WHEN so.total IS NOT NULL THEN SUM(so.total) ELSE COALESCE(SUM(so.total),0) END AS TotalAmount
+FROM
+    `tabSales Order` AS so
+JOIN
+    `tabSales Order Item` AS soi ON so.name = soi.parent
+    JOIN `tabCompany` AS cmp ON cmp.name = so.company 
+WHERE
+    so.docstatus = 1
+    AND so.delivery_status = 'Fully Delivered'
+    AND so.transaction_date >= "2023-01-01"
+    AND so.sales_type <> "Aggregation"
+    AND cmp.company = "agriBORA"
+GROUP BY
+    soi.item_group,
+    Month
+ORDER BY
+    Month;
+    
+  
+    
+SELECT SUM(soi.gross_profit) FROM `tabSales Order Item` AS soi
+JOIN `tabSales Order` AS so ON soi.parent = so.name
+JOIN `tabCompany` ON so.company =  `tabCompany`.name
+WHERE so.delivery_date >= '2023-01-01'
+AND `tabCompany`.company IN  ('agriBORA')
+AND so.delivery_status IN ('Fully Delivered')
+AND so.billing_status IN ('Fully Billed');
+
+
+SELECT count(distinct bin.warehouse) AS count
+from tabBin AS bin 
+LEFT JOIN tabWarehouse AS wh ON  wh.name = bin.warehouse
+LEFT JOIN tabCompany  AS cmp ON wh.company = cmp.name
+WHERE cmp.company NOT IN ('agriBORA','Test','Test 2','Test 3','Google Play Store')
+AND SUM(bin.actual_qty) > 0
+AND SUM(bin.stock_value) > 0 GROUP BY bin.warehouse;
+
+ 
+ -- Compute the gross profit
+ WITH sales_invoice_items AS (
+    SELECT sii.item_code, sii.qty, sii.rate AS sell_rate, sii.parent FROM `tabSales Invoice Item` sii 
+    JOIN `tabSales Invoice` si ON sii.parent = si.name 
+    JOIN `tabCompany` AS cmp ON si.company = cmp.name
+    WHERE si.docstatus = 1
+    AND cmp.company NOT IN  ('agriBORA','Test','Test 3','Test 2','Google Play Store')
+    ),
+    purchase_invoice_items AS (
+        SELECT pii.item_code, pii.rate AS purchase_rate FROM `tabPurchase Invoice Item` AS pii 
+        JOIN `tabPurchase Invoice` AS  pi ON pii.parent  = pi.name 
+        JOIN `tabCompany` AS cmp ON pi.company = cmp.name
+        WHERE pi.docstatus = 1
+        AND cmp.company NOT IN  ('agriBORA','Test','Test 3','Test 2','Google Play Store')
+        )
+    
+SELECT  sales_invoice_items.item_code,
+purchase_invoice_items.purchase_rate * sales_invoice_items.qty AS Total_Buying, 
+sales_invoice_items.sell_rate * sales_invoice_items.qty AS Total_Selling,
+((sales_invoice_items.sell_rate * sales_invoice_items.qty) - (purchase_invoice_items.purchase_rate* sales_invoice_items.qty)) AS Margin
+FROM sales_invoice_items 
+LEFT JOIN purchase_invoice_items ON sales_invoice_items.item_code = purchase_invoice_items.item_code GROUP BY sales_invoice_items.item_code;
+
+
+-- Compare Total Sales
+SELECT
+    week_start AS date_range,
+    -- WEEK(week_data.delivery_date) AS week_number,
+    IFNULL(SUM(week_data.total),0) AS total_sales
+FROM (
+    SELECT company,
+        docstatus, delivery_status, 
+        sales_type,
+        delivery_date,
+        total,
+        DATE_SUB(delivery_date, INTERVAL WEEKDAY(delivery_date) DAY) AS week_start,
+        DATE_ADD(DATE_SUB(delivery_date, INTERVAL WEEKDAY(delivery_date) DAY), INTERVAL 6 DAY) AS week_end
+    FROM
+        `tabSales Order`
+) AS week_data
+JOIN tabCompany AS cmp ON week_data.company = cmp.name
+WHERE cmp.company not in ('agriBORA','Test','Test 2','Test 3')
+AND week_data.delivery_status IN  ('Fully Delivered','Partly Delivered')
+AND week_data.delivery_date >= "2023-01-01"
+AND sales_type <> 'Aggregation'
+GROUP BY
+     week_start
+ORDER BY
+     week_start ASC;
+     
+     
+     
+     
+ -- Get sales in the last 7 days
+ SELECT cmp.company as Hub, SUM(so.total) AS Total  FROM `tabSales Order` AS so 
+JOIN `tabCompany` AS cmp ON so.company = cmp.name
+WHERE so.docstatus =1
+AND so.delivery_date >= DATE_SUB(CURDATE(), INTERVAL 6 DAY)
+AND so.delivery_date <= CURDATE()
+AND so.delivery_status IN ('Fully Delivered','Partly Delivered')
+AND so.billing_status IN ('Fully Billed','Partly Billed')
+AND cmp.company NOT IN ('agriBORA','Test 2','Test 3','Google Play Store')
+GROUP BY Hub ORDER BY Total DESC;
+    
+
